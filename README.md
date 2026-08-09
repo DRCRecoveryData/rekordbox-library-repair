@@ -1,7 +1,19 @@
 # 💽 Rekordbox Library Repair
 
-<img width="400" height="230" alt="Screenshot 2026-08-08 004122" src="https://github.com/user-attachments/assets/e39690b0-d5f3-4c52-8694-b052995b565c" />
-<img width="392" height="182" alt="image" src="https://github.com/user-attachments/assets/ca2cc090-d578-424e-97d7-9d3b86798eeb" />
+### Before
+<p align="center">
+  <img width="1920" height="1033" alt="Screenshot 2026-08-09 212439" src="https://github.com/user-attachments/assets/31ff98d8-3345-4b9b-9fed-774a2a0dfa77" />
+</p>
+
+### After
+<p align="center">
+  <img width="1920" height="1033" alt="Screenshot 2026-08-09 212400" src="https://github.com/user-attachments/assets/724e5d78-d60b-421d-b3e2-78956420e65c" />
+</p>
+
+### Preview
+<p align="center">
+  <img width="392" height="182" alt="image" src="https://github.com/user-attachments/assets/ca2cc090-d578-424e-97d7-9d3b86798eeb" />
+</p>
 
 
 A minimalist, professional desktop utility to automatically diagnose and repair corrupted Rekordbox `export.pdb` USB databases.
