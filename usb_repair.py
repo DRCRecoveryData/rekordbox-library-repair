@@ -696,7 +696,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     self.health_btn.setEnabled(False)
     top_layout.addWidget(self.health_btn)
 
-    self.repair_btn = QPushButton("🛠️ Auto-Repair Torn PDB")
+    self.repair_btn = QPushButton("🛠️ Auto-Repair")
     self.repair_btn.setObjectName("PrimaryButton")
     self.repair_btn.clicked.connect(self.run_repair)
     self.repair_btn.setEnabled(False)
@@ -790,9 +790,9 @@ class RekordboxLibraryRepairWindow(QMainWindow):
           vol = get_windows_drive_label(root)
           if os.path.exists(pioneer_check):
             label = (
-                f"[{letter}:] {vol} (Pioneer USB)"
+                f"[{letter}:] {vol}"
                 if vol
-                else f"[{letter}:] Pioneer USB"
+                else f"[{letter}:]"
             )
             detected.insert(0, (label, root))
           else:
