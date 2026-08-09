@@ -12,7 +12,7 @@
 
 ### Preview
 <p align="center">
-  <img width="392" height="182" alt="image" src="https://github.com/user-attachments/assets/ca2cc090-d578-424e-97d7-9d3b86798eeb" />
+  <img width="1920" height="1033" alt="image" src="https://github.com/user-attachments/assets/9e0f39ee-754a-435c-8d39-5d8316a6a6b2" />
 </p>
 
 
