@@ -4,15 +4,15 @@ import shutil
 import string
 import struct
 import sys
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPointF
+from PyQt6.QtCore import QPointF, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import (
-    QIcon,
-    QPixmap,
-    QPainter,
-    QColor,
     QBrush,
-    QPen,
+    QColor,
     QFont,
+    QIcon,
+    QPainter,
+    QPen,
+    QPixmap,
     QPolygonF,
 )
 from PyQt6.QtWidgets import (
@@ -242,7 +242,7 @@ class RepairWorker(QThread):
           continue
         live_data_pages.add(stored_idx)
 
-      # 1. Torn Growth Pages[cite: 1]
+      # 1. Torn Growth Pages & Truncated Table Chains[cite: 1]
       garbage_ec_pages = []
       for i in range(num_tables):
         toff = 0x1C + i * 16
@@ -265,6 +265,50 @@ class RepairWorker(QThread):
       ):
         if any(b != 0 for b in data_bytes[next_unused * page_size :]):
           truncate_to = next_unused
+
+      # Truncated Table Chains Detection[cite: 1]
+      truncated_chains = []
+      for i in range(num_tables):
+        toff = 0x1C + i * 16
+        if toff + 16 > len(data_bytes):
+          break
+        tt = struct.unpack_from("<I", data_bytes, toff)[0]
+        first = struct.unpack_from("<I", data_bytes, toff + 8)[0]
+        last = struct.unpack_from("<I", data_bytes, toff + 12)[0]
+        if first == 0 or last < total_pages:
+          continue
+
+        seen = set()
+        real_last = None
+        cur = first
+        for _ in range(total_pages + 1):
+          if cur >= total_pages or cur in seen:
+            break
+          seen.add(cur)
+          real_last = cur
+          if cur == last:
+            break
+          off = cur * page_size
+          if off + 0x10 > len(data_bytes):
+            break
+          nxt = struct.unpack_from("<I", data_bytes, off + 0x0C)[0]
+          if nxt == 0:
+            break
+          cur = nxt
+
+        if real_last is None or real_last == last:
+          continue
+
+        off = real_last * page_size
+        if off + page_size > len(data_bytes):
+          continue
+        used_s = struct.unpack_from("<H", data_bytes, off + 0x1E)[0]
+        if used_s == 0:
+          continue
+
+        real_next = struct.unpack_from("<I", data_bytes, off + 0x0C)[0]
+        corrected_ec = real_next if real_next > real_last else total_pages
+        truncated_chains.append((tt, real_last, corrected_ec))
 
       # 2. Sentinel u5 & Flags & B-Trees[cite: 1]
       sentinel_u5_pages, wrong_flags_pages, stale_btree_pages = [], [], []
@@ -308,6 +352,17 @@ class RepairWorker(QThread):
         new_len = truncate_to * page_size
         if new_len < len(data_bytes):
           del data_bytes[new_len:]
+
+      # Apply Truncated Table Chain Fixes[cite: 1]
+      for tt, corrected_last, corrected_ec in truncated_chains:
+        for i in range(num_tables):
+          toff = 0x1C + i * 16
+          if toff + 16 > len(data_bytes):
+            break
+          if struct.unpack_from("<I", data_bytes, toff)[0] == tt:
+            struct.pack_into("<I", data_bytes, toff + 4, corrected_ec)
+            struct.pack_into("<I", data_bytes, toff + 12, corrected_last)
+            break
 
       for p in sentinel_u5_pages:
         off = p * page_size
