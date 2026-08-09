@@ -37,10 +37,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-# --- Theme Styling ---
+# --- Modern Professional Blue Theme Styling ---
 THEME_STYLESHEET = """
 QMainWindow {
-    background-color: #0E1013;
+    background-color: #0B0F19;
     color: #E2E8F0;
 }
 QWidget {
@@ -49,84 +49,89 @@ QWidget {
     font-size: 12px;
 }
 QPushButton {
-    background-color: #1A1D24;
+    background-color: #131B2E;
     color: #F8FAFC;
-    border: 1px solid #2A2F3D;
-    border-radius: 4px;
-    padding: 6px 12px;
+    border: 1px solid #1E293B;
+    border-radius: 5px;
+    padding: 6px 14px;
     font-weight: 600;
 }
 QPushButton:hover {
-    background-color: #242936;
-    border-color: #00CC44;
+    background-color: #1E293B;
+    border-color: #3B82F6;
     color: #FFFFFF;
 }
 QPushButton:pressed {
-    background-color: #0F1218;
+    background-color: #0F172A;
 }
 QPushButton:disabled {
-    background-color: #15181F;
-    color: #4A5568;
-    border-color: #1E222B;
+    background-color: #0D1322;
+    color: #475569;
+    border-color: #131B2E;
 }
 QPushButton#PrimaryButton {
-    background-color: #00CC44;
+    background-color: #2563EB;
     border: none;
     font-size: 13px;
     font-weight: bold;
     color: #FFFFFF;
 }
 QPushButton#PrimaryButton:hover {
-    background-color: #00B33B;
+    background-color: #1D4ED8;
 }
 QPushButton#PrimaryButton:pressed {
-    background-color: #009933;
+    background-color: #1E40AF;
+}
+QPushButton#PrimaryButton:disabled {
+    background-color: #131B2E;
+    color: #475569;
+    border: 1px solid #1E293B;
 }
 QComboBox {
-    background-color: #15181F;
-    border: 1px solid #2A2F3D;
-    border-radius: 4px;
-    padding: 6px 10px;
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 5px;
+    padding: 6px 12px;
     color: #FFFFFF;
 }
 QComboBox::drop-down {
     border: 0px;
 }
 QComboBox QAbstractItemView {
-    background-color: #15181F;
+    background-color: #111827;
     color: #FFFFFF;
-    selection-background-color: #00CC44;
-    border: 1px solid #2A2F3D;
+    selection-background-color: #2563EB;
+    border: 1px solid #1F2937;
 }
 QProgressBar {
-    border: 1px solid #2A2F3D;
-    border-radius: 4px;
-    background-color: #15181F;
+    border: 1px solid #1F2937;
+    border-radius: 5px;
+    background-color: #111827;
     text-align: center;
     color: #FFFFFF;
     font-weight: bold;
     font-size: 11px;
 }
 QProgressBar::chunk {
-    background-color: #00CC44;
-    border-radius: 3px;
+    background-color: #2563EB;
+    border-radius: 4px;
 }
 QTableWidget { 
-    background-color: #15181F; color: #F1F1F1; 
-    gridline-color: #2A2F3D; selection-background-color: #00CC44; 
-    selection-color: #FFFFFF; border: 1px solid #2A2F3D; 
+    background-color: #111827; color: #F1F1F1; 
+    gridline-color: #1F2937; selection-background-color: #2563EB; 
+    selection-color: #FFFFFF; border: 1px solid #1F2937; 
 }
 QHeaderView::section { 
-    background-color: #1A1D24; color: #00CC44; 
-    padding: 5px; border: 1px solid #2A2F3D; font-weight: bold; 
+    background-color: #131B2E; color: #60A5FA; 
+    padding: 6px; border: 1px solid #1F2937; font-weight: bold; 
 }
 QTextEdit { 
-    background-color: #12141A; color: #A9B7C6; 
-    border: 1px solid #2A2F3D; font-family: Consolas, monospace; font-size: 10pt; 
+    background-color: #0D1322; color: #93C5FD; 
+    border: 1px solid #1F2937; font-family: Consolas, monospace; font-size: 10pt; 
 }
 QLineEdit { 
-    background-color: #15181F; color: #FFFFFF; border: 1px solid #2A2F3D; 
-    padding: 5px; border-radius: 3px; font-size: 11pt; 
+    background-color: #111827; color: #FFFFFF; border: 1px solid #1F2937; 
+    padding: 6px; border-radius: 5px; font-size: 11pt; 
 }
 """
 
@@ -291,14 +296,14 @@ class PdbParser:
 
     if not issues:
       return (
-          '<span style="color: #2ecc71; font-weight: bold;">[OK] Database Health'
+          '<span style="color: #60A5FA; font-weight: bold;">[OK] Database Health'
           " Check Passed: No structural corruption or anomalies found in"
           " export.pdb!</span>"
       )
     else:
       warning_html = "<br>".join(issues)
       return (
-          '<span style="color: #e74c3c; font-weight: bold;">--- USB DIAGNOSTICS:'
+          '<span style="color: #F87171; font-weight: bold;">--- USB DIAGNOSTICS:'
           f" ANOMALIES / TORN ---</span><br>{warning_html}"
       )
 
@@ -513,7 +518,6 @@ class RepairWorker(QThread):
 
       self.progress.emit(60, "Analyzing tables & structure...")
 
-      # Parse tables dynamically inside worker
       tables = []
       for i in range(num_tables):
         toff = 0x1C + i * 16
@@ -545,7 +549,6 @@ class RepairWorker(QThread):
           continue
         live_data_pages.add(stored_idx)
 
-      # 1. Zero out dirty garbage empty_candidate pages
       garbage_ec_pages = 0
       for t in tables:
         ec = t["empty_candidate"]
@@ -557,7 +560,6 @@ class RepairWorker(QThread):
             data_bytes[off : off + page_size] = b"\x00" * page_size
             garbage_ec_pages += 1
 
-      # 2. Handle torn unpopulated growth tail beyond valid limits
       max_table_last = max([t["last"] for t in tables] if tables else [1])
       valid_limit = max(
           next_unused,
@@ -576,11 +578,9 @@ class RepairWorker(QThread):
       total_pages = len(data_bytes) // page_size
       max_page = total_pages - 1
 
-      # Re-sync next_unused pointer precisely
       corrected_next_unused = min(total_pages, max_table_last + 2)
       struct.pack_into("<I", data_bytes, 0x0C, corrected_next_unused)
 
-      # 3. Reconcile Table Headers & Page Chains
       fixed_chains = 0
       for t in tables:
         toff = 0x1C + (t["index"] * 16)
@@ -603,7 +603,6 @@ class RepairWorker(QThread):
           struct.pack_into("<I", data_bytes, toff + 4, ec_val)
           fixed_chains += 1
 
-      # 4. Sweep Pages: Fix ID mismatches, clear u5 sentinels, normalize flags
       fixed_ids = 0
       fixed_u5 = 0
       fixed_flags = 0
@@ -687,7 +686,6 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     layout.setContentsMargins(12, 12, 12, 12)
     layout.setSpacing(8)
 
-    # Top Toolbar Layout
     top_layout = QHBoxLayout()
     self.load_btn = QPushButton("📂 Open export.pdb")
     self.load_btn.clicked.connect(self.open_file)
@@ -711,7 +709,6 @@ class RekordboxLibraryRepairWindow(QMainWindow):
 
     top_layout.addStretch()
 
-    # Drive Selector combo box for quick selection
     self.drive_combo = QComboBox()
     self.drive_combo.setMinimumWidth(220)
     self.drive_combo.currentIndexChanged.connect(self.on_drive_selected)
@@ -726,13 +723,11 @@ class RekordboxLibraryRepairWindow(QMainWindow):
 
     layout.addLayout(top_layout)
 
-    # Progress bar for background workers
     self.progress_bar = QProgressBar()
     self.progress_bar.setValue(0)
     self.progress_bar.setFixedHeight(18)
     layout.addWidget(self.progress_bar)
 
-    # Filter Rows Layout
     search_layout = QHBoxLayout()
     search_layout.addWidget(QLabel("🔍 Filter Rows:"))
     self.search_input = QLineEdit()
@@ -744,7 +739,6 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     search_layout.addWidget(self.search_input)
     layout.addLayout(search_layout)
 
-    # Main Splitter View (Tables on Left, Rows & Logs on Right)
     splitter = QSplitter(Qt.Orientation.Horizontal)
 
     self.tables_table = QTableWidget()
@@ -861,11 +855,11 @@ class RekordboxLibraryRepairWindow(QMainWindow):
       self.search_input.setEnabled(True)
 
       self.log_output.setHtml(
-          '<span style="color: #3498db;">Loaded PDB:</span>'
+          '<span style="color: #60A5FA;">Loaded PDB:</span>'
           f" <b>{file_name}</b><br>"
-          '<span style="color: #2ecc71;">Total Pages:</span>'
+          '<span style="color: #34D399;">Total Pages:</span>'
           f" {self.parser.total_pages} | "
-          '<span style="color: #2ecc71;">Total Tables:</span>'
+          '<span style="color: #34D399;">Total Tables:</span>'
           f" {self.parser.num_tables}"
       )
 
@@ -875,7 +869,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
 
     except Exception as e:
       self.log_output.setHtml(
-          f'<span style="color: #e74c3c;">Error opening PDB: {e}</span>'
+          f'<span style="color: #F87171;">Error opening PDB: {e}</span>'
       )
 
   def run_health_check(self):
@@ -923,7 +917,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     self.repair_btn.setEnabled(True)
     self.progress_bar.setFormat("Ready")
     self.log_output.setHtml(
-        f'<span style="color: #2ecc71; font-weight: bold;">{msg}</span>'
+        f'<span style="color: #34D399; font-weight: bold;">{msg}</span>'
     )
     if self.current_pdb_path and os.path.exists(self.current_pdb_path):
       self.load_pdb_from_path(self.current_pdb_path)
@@ -934,7 +928,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     self.progress_bar.setValue(0)
     self.progress_bar.setFormat("Error")
     self.log_output.setHtml(
-        f'<span style="color: #e74c3c;">Repair failed: {err}</span>'
+        f'<span style="color: #F87171;">Repair failed: {err}</span>'
     )
     QMessageBox.critical(self, "Library Error", err)
 
@@ -955,12 +949,12 @@ class RekordboxLibraryRepairWindow(QMainWindow):
           for r in self.current_rows:
             writer.writerow([r["id"], r["page"], r["label"]])
         self.log_output.setHtml(
-            f'<span style="color: #2ecc71;">Successfully exported table data'
+            f'<span style="color: #34D399;">Successfully exported table data'
             f" to: <b>{save_path}</b></span>"
         )
       except Exception as e:
         self.log_output.setHtml(
-            f'<span style="color: #e74c3c;">Export failed: {e}</span>'
+            f'<span style="color: #F87171;">Export failed: {e}</span>'
         )
 
   def on_table_selected(self, row, column):
