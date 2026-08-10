@@ -546,7 +546,7 @@ class RepairWorker(QThread):
       num_tables = struct.unpack_from("<I", data_bytes, 8)[0]
       next_unused = struct.unpack_from("<I", data_bytes, 0x0C)[0]
 
-      self.progress.emit(60, "Analyzing tables & structure...")
+      self.progress.emit(55, "Parsing tables and mapping page ownership...")
 
       tables = []
       for i in range(num_tables):
@@ -567,19 +567,57 @@ class RepairWorker(QThread):
             }
         )
 
-      live_data_pages = set()
-      for p in range(1, total_pages):
-        off = p * page_size
-        if off + 40 > len(data_bytes):
-          break
-        stored_idx = struct.unpack_from("<I", data_bytes, off + 4)[0]
-        if stored_idx == 0 or data_bytes[off + 0x1B] == 0x64:
-          continue
-        if struct.unpack_from("<H", data_bytes, off + 0x1E)[0] == 0:
-          continue
-        live_data_pages.add(stored_idx)
+      # --- ADVANCED CHAIN COLLISION RESOLUTION ---
+      claimed_pages = set()
+      fixed_chains_count = 0
 
+      for t in tables:
+        toff = 0x1C + (t["index"] * 16)
+        cur = t["first"]
+        chain_pages = []
+        visited_in_chain = set()
+
+        while (
+            cur != 0
+            and cur < total_pages
+            and cur not in visited_in_chain
+            and cur not in claimed_pages
+        ):
+          visited_in_chain.add(cur)
+          chain_pages.append(cur)
+
+          off = cur * page_size
+          if off + 0x10 > len(data_bytes):
+            break
+          nxt = struct.unpack_from("<I", data_bytes, off + 0x0C)[0]
+          if nxt == cur:
+            struct.pack_into("<I", data_bytes, off + 0x0C, 0)
+            break
+          cur = nxt
+
+        if chain_pages:
+          new_first = chain_pages[0]
+          new_last = chain_pages[-1]
+          for p in chain_pages:
+            claimed_pages.add(p)
+        else:
+          new_first = 0
+          new_last = 0
+
+        if new_first != t["first"] or new_last != t["last"]:
+          struct.pack_into("<I", data_bytes, toff + 8, new_first)
+          struct.pack_into("<I", data_bytes, toff + 12, new_last)
+          t["first"] = new_first
+          t["last"] = new_last
+          fixed_chains_count += 1
+
+      self.progress.emit(75, "Sanitizing page headers, IDs, and flags...")
+
+      fixed_ids = 0
+      fixed_u5 = 0
+      fixed_flags = 0
       garbage_ec_pages = 0
+
       for t in tables:
         ec = t["empty_candidate"]
         if ec != 0 and ec < total_pages:
@@ -591,15 +629,7 @@ class RepairWorker(QThread):
             garbage_ec_pages += 1
 
       max_table_last = max([t["last"] for t in tables] if tables else [1])
-      valid_limit = max(
-          next_unused,
-          max_table_last + 1,
-          max(
-              [t["empty_candidate"] for t in tables]
-              if tables
-              else [1]
-          ),
-      )
+      valid_limit = max(next_unused, max_table_last + 1)
       max_allowed_len = valid_limit * page_size
       truncated_tail_pages = 0
 
@@ -610,36 +640,8 @@ class RepairWorker(QThread):
         del data_bytes[max_allowed_len:]
 
       total_pages = len(data_bytes) // page_size
-      max_page = total_pages - 1
-
       corrected_next_unused = min(total_pages, max_table_last + 2)
       struct.pack_into("<I", data_bytes, 0x0C, corrected_next_unused)
-
-      fixed_chains = 0
-      for t in tables:
-        toff = 0x1C + (t["index"] * 16)
-        changed = False
-        f_val, l_val, ec_val = t["first"], t["last"], t["empty_candidate"]
-
-        if f_val > max_page:
-          f_val = min(max_page, 1)
-          changed = True
-        if l_val > max_page:
-          l_val = max_page
-          changed = True
-        if ec_val > total_pages:
-          ec_val = total_pages
-          changed = True
-
-        if changed:
-          struct.pack_into("<I", data_bytes, toff + 8, f_val)
-          struct.pack_into("<I", data_bytes, toff + 12, l_val)
-          struct.pack_into("<I", data_bytes, toff + 4, ec_val)
-          fixed_chains += 1
-
-      fixed_ids = 0
-      fixed_u5 = 0
-      fixed_flags = 0
 
       for p in range(1, total_pages):
         off = p * page_size
@@ -668,7 +670,7 @@ class RepairWorker(QThread):
               data_bytes[off + 0x1B] = 0x24
               fixed_flags += 1
 
-      self.progress.emit(90, "Recomputing seqdb index & saving changes...")
+      self.progress.emit(90, "Updating database sequence & writing file...")
       max_seq = 0
       for p in range(1, len(data_bytes) // page_size):
         off = p * page_size
@@ -686,6 +688,7 @@ class RepairWorker(QThread):
       self.progress.emit(100, "Ready!")
       self.finished.emit(
           f"Successfully fully rebuilt and CDJ-certified saved to:\n{pdb_path}\n"
+          f"- Resolved Colliding Chains: {fixed_chains_count}\n"
           f"- Zeroed Garbage Candidates: {garbage_ec_pages}\n"
           f"- Truncated Tail Pages: {truncated_tail_pages}\n"
           f"- Re-aligned Page IDs: {fixed_ids}\n"
