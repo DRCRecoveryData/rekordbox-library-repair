@@ -165,7 +165,13 @@ class PdbParser:
     with open(pdb_path, "rb") as f:
       self.data = bytearray(f.read())
 
+    if len(self.data) < 32:
+      raise ValueError("PDB file is too small or invalid.")
+
     self.page_size = struct.unpack_from("<I", self.data, 4)[0]
+    if self.page_size == 0:
+      raise ValueError("PDB page size is zero.")
+
     self.num_tables = struct.unpack_from("<I", self.data, 8)[0]
     self.next_unused = struct.unpack_from("<I", self.data, 0x0C)[0]
     self.total_pages = len(self.data) // self.page_size
@@ -479,6 +485,23 @@ class PdbParser:
     return parsed_rows
 
 
+class LoadWorker(QThread):
+  finished = pyqtSignal(object, str)
+  error = pyqtSignal(str)
+
+  def __init__(self, pdb_path: str):
+    super().__init__()
+    self.pdb_path = pdb_path
+
+  def run(self):
+    try:
+      parser = PdbParser(self.pdb_path)
+      parser.parse_tables()
+      self.finished.emit(parser, self.pdb_path)
+    except Exception as e:
+      self.error.emit(str(e))
+
+
 class RepairWorker(QThread):
   progress = pyqtSignal(int, str)
   finished = pyqtSignal(str)
@@ -571,7 +594,11 @@ class RepairWorker(QThread):
       valid_limit = max(
           next_unused,
           max_table_last + 1,
-          max([t["empty_candidate"] for t in tables] + [1]),
+          max(
+              [t["empty_candidate"] for t in tables]
+              if tables
+              else [1]
+          ),
       )
       max_allowed_len = valid_limit * page_size
       truncated_tail_pages = 0
@@ -678,6 +705,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
     self.current_rows = []
     self.current_pdb_path = ""
     self.current_root = ""
+    self.load_worker = None
     self.init_ui()
     self.detect_drives()
 
@@ -831,12 +859,28 @@ class RekordboxLibraryRepairWindow(QMainWindow):
       self.load_pdb_from_path(file_name)
 
   def load_pdb_from_path(self, file_name):
+    self.load_btn.setEnabled(False)
+    self.progress_bar.setRange(0, 0)
+    self.progress_bar.setFormat("Loading PDB asynchronously...")
+
+    self.load_worker = LoadWorker(file_name)
+    self.load_worker.finished.connect(self.handle_load_success)
+    self.load_worker.error.connect(self.handle_load_error)
+    self.load_worker.start()
+
+  def handle_load_success(self, parser, file_name):
+    self.load_btn.setEnabled(True)
+    self.progress_bar.setRange(0, 100)
+    self.progress_bar.setValue(100)
+    self.progress_bar.setFormat("Ready")
+
+    self.parser = parser
+    self.current_pdb_path = file_name
+    self.current_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(file_name))
+    )
+
     try:
-      self.current_pdb_path = file_name
-      self.current_root = os.path.dirname(
-          os.path.dirname(os.path.dirname(file_name))
-      )
-      self.parser = PdbParser(file_name)
       tables = self.parser.parse_tables()
 
       self.tables_table.setRowCount(len(tables))
@@ -872,8 +916,17 @@ class RekordboxLibraryRepairWindow(QMainWindow):
 
     except Exception as e:
       self.log_output.setHtml(
-          f'<span style="color: #F87171;">Error opening PDB: {e}</span>'
+          f'<span style="color: #F87171;">Error parsing tables: {e}</span>'
       )
+
+  def handle_load_error(self, err):
+    self.load_btn.setEnabled(True)
+    self.progress_bar.setRange(0, 100)
+    self.progress_bar.setValue(0)
+    self.progress_bar.setFormat("Error")
+    self.log_output.setHtml(
+        f'<span style="color: #F87171;">Error opening PDB: {err}</span>'
+    )
 
   def run_health_check(self):
     if not self.parser:
@@ -903,6 +956,7 @@ class RekordboxLibraryRepairWindow(QMainWindow):
       return
 
     self.repair_btn.setEnabled(False)
+    self.progress_bar.setRange(0, 100)
     self.progress_bar.setValue(0)
 
     self.worker = RepairWorker(target)
